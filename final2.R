@@ -24,6 +24,8 @@ load_("DESeq2")
 load_("edgeR")
 load_("AnnotationDbi")
 load_("org.Hs.eg.db")
+load_("clusterProfiler")
+load_('biomaRt')
 
 #epeidi o lagani gamietai kai prepei na paroume ta xaraktiristika apo allou
 my_data<-read.table("/home/antonios/Dropbox/code_base/203/SraRunTable.txt",header = TRUE,sep="\t")
@@ -84,10 +86,10 @@ dim(count_data)
 dgList <- DGEList(counts=count_data, genes=rownames(count_data),group=factor(characteristics_vec2))
 
 
-png("test.png")
-plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
-legend("bottomleft", as.character(unique(dgList$samples$group)), col=1:3, pch=20)
-dev.off()
+#png("test.png")
+#plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
+#legend("bottomleft", as.character(unique(dgList$samples$group)), col=1:3, pch=20)
+#dev.off()
 
 #design matrix
 design.mat <- model.matrix(~ 0 + dgList$samples$group)
@@ -99,9 +101,9 @@ d2 <- estimateGLMTrendedDisp(d2,design.mat, method="auto")
 # You can change method to "auto", "bin.spline", "power", "spline", "bin.loess".
 # The default is "auto" which chooses "bin.spline" when > 200 tags and "power" otherwise.
 d2 <- estimateGLMTagwiseDisp(d2,design.mat)
-png("test2.png")
-plotBCV(d2)
-dev.off()
+#png("test2.png")
+#plotBCV(d2)
+#dev.off()
 
 #trito link
 et <- exactTest(d2)
@@ -110,17 +112,48 @@ results_edgeR <- topTags(et,adjust.method="BH", n = nrow(count_data), sort.by = 
 #krata mono ta data
 edger_table<-results_edgeR$table
 #apo auta mono ta differentially expressed genes
-genes_keep<-edger_table[edger_table$FDR<0.05,]
+diff_genes<-edger_table[edger_table$FDR<0.05,]
 #mono ta onomata twn genes
-genes_names<-genes_keep$genes
+diff_genes_names<-diff_genes$genes
 #sbise kati malakies pou exei me teleies kai tetoia
-final_genes_names<-gsub("\\..*","",genes_names)
+diff_genes_names<-gsub("\\..*","",diff_genes_names)
+
+universe_genes<-gsub("\\..*","",edger_table$genes)
 
 
-symbol <- mapIds(org.Hs.eg.db,keys=final_genes_names,column="SYMBOL", keytype="ENSEMBL", multiVals="first")
-#remove nas
-symbol <- symbol[!is.na(symbol)]
+############################################################################3
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
 
-length(symbol) #2117 genes differentially expressed
+G_list1 <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id",
+"entrezgene", "description"),values=diff_genes_names,mart= mart)
 
-#nomizw oti apo edw kai pera exoume mono to kommati tis GO
+G_list2 <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id",
+"entrezgene", "description"),values=universe_genes,mart= mart)
+
+entrez_diff_genes_names<-G_list1[,2]
+entrez_diff_genes_names<-as.character(entrez_diff_genes_names[!is.na(entrez_diff_genes_names)])
+
+universe_genes<-G_list2[,2]
+universe_genes<-as.character(universe_genes[!is.na(universe_genes)])
+
+
+ego <- enrichGO(gene          = genes_to_keep,
+                universe      = universe_genes,
+                OrgDb         = org.Hs.eg.db,
+                ont           = "BP",
+                pAdjustMethod = "fdr",
+                pvalueCutoff  = 0.05,
+                qvalueCutoff  = 0.05,
+                minGSSize     = 15,
+                maxGSSize     = 500,
+                readable      = TRUE)
+
+head(ego)[, 1:7]
+
+
+filteredEgo <- gofilter(ego, level = 4);
+dim(filteredEgo)
+
+png("test3.png")
+dotplot(filteredEgo)
+dev.off()
