@@ -17,10 +17,13 @@ load_ = function(pkg, bioC=T) {
 }
 
 load_("codetools", bioC=F)
+load_("glue",bioC=F)
 load_("doRNG", bioC=F)
 load_("recount")
 load_("DESeq2")
 load_("edgeR")
+load_("AnnotationDbi")
+load_("org.Hs.eg.db")
 
 #epeidi o lagani gamietai kai prepei na paroume ta xaraktiristika apo allou
 my_data<-read.table("/home/antonios/Dropbox/code_base/203/SraRunTable.txt",header = TRUE,sep="\t")
@@ -103,4 +106,21 @@ dev.off()
 #trito link
 et <- exactTest(d2)
 results_edgeR <- topTags(et, n = nrow(count_data), sort.by = "PValue")
-head(results_edgeR$table)
+
+#krata mono ta data
+edger_table<-results_edgeR$table
+#apo auta mono ta differentially expressed genes
+genes_keep<-edger_table[edger_table$PValue<0.05,]
+#mono ta onomata twn genes
+genes_names<-genes_keep$genes
+#sbise kati malakies pou exei me teleies kai tetoia
+final_genes_names<-gsub("\\..*","",genes_names)
+
+
+symbol <- mapIds(org.Hs.eg.db,keys=final_genes_names,column="SYMBOL", keytype="ENSEMBL", multiVals="first")
+#remove nas
+symbol <- symbol[!is.na(symbol)]
+
+length(symbol) #2117 genes differentially expressed
+
+#nomizw oti apo edw kai pera exoume mono to kommati tis GO
