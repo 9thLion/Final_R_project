@@ -105,12 +105,12 @@ dev.off()
 
 #trito link
 et <- exactTest(d2)
-results_edgeR <- topTags(et, n = nrow(count_data), sort.by = "PValue")
+results_edgeR <- topTags(et,adjust.method="BH", n = nrow(count_data), sort.by = "PValue")
 
 #krata mono ta data
 edger_table<-results_edgeR$table
 #apo auta mono ta differentially expressed genes
-genes_keep<-edger_table[edger_table$PValue<0.05,]
+genes_keep<-edger_table[edger_table$FDR<0.05,]
 #mono ta onomata twn genes
 genes_names<-genes_keep$genes
 #sbise kati malakies pou exei me teleies kai tetoia
