@@ -28,21 +28,37 @@ load_("clusterProfiler")
 load_('biomaRt')
 
 #epeidi o lagani gamietai kai prepei na paroume ta xaraktiristika apo allou
-my_data<-read.table("/home/antonios/Dropbox/code_base/203/SraRunTable.txt",header = TRUE,sep="\t")
+sra_run_table<-read.table("Master-in-Bioinformatics/BC203_Introduction_to_R_for_Bioinformaticians/Project2/Final_R_project/SraRunTable.csv",header = TRUE,sep="\t")
 
 #project of interest
 project_id <- 'SRP018008';
 
 # Download the gene-level RangedSummarizedExperiment data
-download_study(project_id)
+#download_study(project_id)
 
 # Load the object rse_gene
 load(file.path(project_id, 'rse_gene.Rdata'))
-class(rse_gene)
 
-#extracting the count data
-count_data <- assay(rse_gene)
-count_data[1:5, 1:5]
+# We get the columns for sample id and sample classes (cancer / normal)
+sra_run_subset <- sra_run_table[,c(11,12)]
+
+# Using a regular expression we remove the prefix before the cancer/normal
+# The first condition for the data are to be B123_Normal or B123_Cancer so we just erase the prefix
+
+sra_run_subset[2]<-apply(sra_run_subset[2],2, function(x) sub(".*_","",x))
+
+# On the other hand e.g B123-12N (for normal) or B123-12T (for tumor), we replace the whole value
+sra_run_subset[2]<-apply(sra_run_subset[2],2, function(x) sub(".*-.*N","Normal",x))
+sra_run_subset[2]<-apply(sra_run_subset[2],2, function(x) sub(".*-.*T","Cancer",x))
+
+# Get the samples from the summary experiment and put them in a dataframe
+transcripts<- as.data.frame(sort(rse_gene$sample))
+
+sra_run_subset<- sra_run_subset[order(sra_run_subset$SRA_Sample_s),]
+
+# Rename the column name
+colnames(transcripts)[1]<-"RSA_Samples"
+
 
 #sto telos to characteristic vec2 8a exei "cancer" "no-cancer"
 #stis katalliles 8eseis pou 8a eixe to kanoniko dataset an den 
@@ -63,6 +79,7 @@ characteristics_vec2<-c()
 for(i in 1:length(characteristics_vec)){
 	characteristics_vec2[i]<-as.character(my_data$Sample_Name_s[characteristics_vec[i]])
 }
+
 characteristics_vec2
 
 for(i in 1:length(characteristics_vec2)){
