@@ -1,8 +1,9 @@
 #diale3i lagani
 #http://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day3/rnaSeq_DE.pdf
 
-#Our source of label vector:a
+#Our source of label vector:
 #https://trace.ncbi.nlm.nih.gov/Traces/study/?acc=SRP018008&go=go
+#https://trace.ncbi.nlm.nih.gov/Traces/sra/?study=SRP018008
 
 #Define a function for loading packages
 load_ = function(pkg, bioC=T) {
@@ -28,6 +29,9 @@ load_("AnnotationDbi")
 load_("org.Hs.eg.db")
 load_("clusterProfiler")
 load_('biomaRt')
+load_('ggplot2', bioC=F)
+load_('corrplot', bioC=F)
+load_('vioplot', bioC=F)
 
 #epeidi o lagani gamietai kai prepei na paroume ta xaraktiristika apo allou
 my_data<-read.table("SraRunTable.txt",header = TRUE,sep="\t")
@@ -84,6 +88,7 @@ characteristics_vec2
 #remove the genes that have very small counts
 
 #do normalization
+#filter
 toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
 count_data <- count_data[toKeep, ];
 dim(count_data)
@@ -127,12 +132,14 @@ diff_genes<-edger_table[edger_table$PValue<0.05/nrow(edger_table),]
 #mono ta onomata twn genes
 #sbise kati malakies pou exei me teleies kai tetoia
 #it ruins the entrez id, so we get rid of the dots
-diff_genes_names<-diff_genes$genes
+diff_genes_names_<-diff_genes$genes
 #sbise kati malakies pou exei me teleies kai tetoia
-diff_genes_names<-gsub("\\..*","",diff_genes_names)
+diff_genes_names<-gsub("\\..*","",diff_genes_names_)
 
 universe_genes<-gsub("\\..*","",edger_table$genes)
 
+Corre = cor(count_data[diff_genes_names_,])
+corrplot(Corre)
 
 ###########################################################################
 
