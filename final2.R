@@ -1,6 +1,8 @@
-#https://web.stanford.edu/class/bios221/labs/rnaseq/lab_4_rnaseq.html
 #diale3i lagani
 #http://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day3/rnaSeq_DE.pdf
+
+#Our source of label vector:a
+#https://trace.ncbi.nlm.nih.gov/Traces/study/?acc=SRP018008&go=go
 
 #Define a function for loading packages
 load_ = function(pkg, bioC=T) {
@@ -28,7 +30,7 @@ load_("clusterProfiler")
 load_('biomaRt')
 
 #epeidi o lagani gamietai kai prepei na paroume ta xaraktiristika apo allou
-my_data<-read.table("/home/antonios/Dropbox/code_base/203/SraRunTable.txt",header = TRUE,sep="\t")
+my_data<-read.table("SraRunTable.txt",header = TRUE,sep="\t")
 
 #project of interest
 project_id <- 'SRP018008';
@@ -42,15 +44,16 @@ class(rse_gene)
 
 #extracting the count data
 count_data <- assay(rse_gene)
-count_data[1:5, 1:5]
 
 #sto telos to characteristic vec2 8a exei "cancer" "no-cancer"
-#stis katalliles 8eseis pou 8a eixe to kanoniko dataset an den 
+#stis katalliles 8eseis pou 8a eixe to kanoniko dataset an den
 #itan malakismeno
 characteristics_vec<-c()
 for (i in 1:length(rse_gene$sample)){
+	#for each column of rse gene
 	name<-rse_gene$sample[i]
 	for (j in 1:length(my_data$SRA_Sample_s)){
+		#match the one in SRA table and keep the label
 		name2<-my_data$SRA_Sample_s[j]
 		if(name==name2){
 			characteristics_vec[i]<-my_data$Sample_Name_s[j]
@@ -59,12 +62,14 @@ for (i in 1:length(rse_gene$sample)){
 	}
 }
 
+#maybe change
 characteristics_vec2<-c()
 for(i in 1:length(characteristics_vec)){
 	characteristics_vec2[i]<-as.character(my_data$Sample_Name_s[characteristics_vec[i]])
 }
 characteristics_vec2
 
+#make binary
 for(i in 1:length(characteristics_vec2)){
 	if(grepl("Cancer",characteristics_vec2[i])){
 		characteristics_vec2[i]<-"Cancer"
@@ -77,21 +82,24 @@ characteristics_vec2
 
 #keep data with some significance
 #remove the genes that have very small counts
+
+#do normalization
 toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
 count_data <- count_data[toKeep, ];
 dim(count_data)
 
 #prwto link
+#https://web.stanford.edu/class/bios221/labs/rnaseq/lab_4_rnaseq.html
+
 #object for edgeR
 dgList <- DGEList(counts=count_data, genes=rownames(count_data),group=factor(characteristics_vec2))
 
+png("test.png")
+plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
+legend("bottomleft", as.character(unique(dgList$samples$group)), col=1:3, pch=20)
+dev.off()
 
-#png("test.png")
-#plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
-#legend("bottomleft", as.character(unique(dgList$samples$group)), col=1:3, pch=20)
-#dev.off()
-
-#design matrix
+#design matrix: (one hot encoding)
 design.mat <- model.matrix(~ 0 + dgList$samples$group)
 colnames(design.mat) <- levels(dgList$samples$group)
 
@@ -101,19 +109,24 @@ d2 <- estimateGLMTrendedDisp(d2,design.mat, method="auto")
 # You can change method to "auto", "bin.spline", "power", "spline", "bin.loess".
 # The default is "auto" which chooses "bin.spline" when > 200 tags and "power" otherwise.
 d2 <- estimateGLMTagwiseDisp(d2,design.mat)
-#png("test2.png")
-#plotBCV(d2)
-#dev.off()
+png("test2.png")
+plotBCV(d2)
+dev.off()
 
 #trito link
+#Compute genewise exact tests for differences in the means between two groups of negative-binomially distributed counts.
 et <- exactTest(d2)
 results_edgeR <- topTags(et,adjust.method="BH", n = nrow(count_data), sort.by = "PValue")
+results_edgeR <- topTags(et, n = nrow(count_data), sort.by = "PValue")
 
 #krata mono ta data
 edger_table<-results_edgeR$table
 #apo auta mono ta differentially expressed genes
-diff_genes<-edger_table[edger_table$FDR<0.05,]
+#correction p-value
+diff_genes<-edger_table[edger_table$PValue<0.05/nrow(edger_table),]
 #mono ta onomata twn genes
+#sbise kati malakies pou exei me teleies kai tetoia
+#it ruins the entrez id, so we get rid of the dots
 diff_genes_names<-diff_genes$genes
 #sbise kati malakies pou exei me teleies kai tetoia
 diff_genes_names<-gsub("\\..*","",diff_genes_names)
@@ -121,7 +134,9 @@ diff_genes_names<-gsub("\\..*","",diff_genes_names)
 universe_genes<-gsub("\\..*","",edger_table$genes)
 
 
-############################################################################3
+###########################################################################
+
+#Mapping from ensembl ID to entrez ID
 mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
 
 G_list1 <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id",
@@ -137,7 +152,7 @@ universe_genes<-G_list2[,2]
 universe_genes<-as.character(universe_genes[!is.na(universe_genes)])
 
 
-ego <- enrichGO(gene          = genes_to_keep,
+ego <- enrichGO(gene          = entrez_diff_genes_names,
                 universe      = universe_genes,
                 OrgDb         = org.Hs.eg.db,
                 ont           = "BP",
@@ -147,6 +162,7 @@ ego <- enrichGO(gene          = genes_to_keep,
                 minGSSize     = 15,
                 maxGSSize     = 500,
                 readable      = TRUE)
+#
 
 head(ego)[, 1:7]
 
