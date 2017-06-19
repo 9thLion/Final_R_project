@@ -19,6 +19,7 @@ load_ = function(pkg, bioC=T) {
 	library(pkg, character.only=T)
 }
 
+#Installing and loading the required packages
 load_("codetools", bioC=F)
 load_("glue",bioC=F)
 load_("doRNG", bioC=F)
@@ -30,13 +31,14 @@ load_("org.Hs.eg.db")
 load_("clusterProfiler")
 load_('biomaRt')
 load_('plotly', bioC=F)
-load_('ggplot2', bioC=F)
 load_('corrplot', bioC=F)
-load_('vioplot', bioC=F)
 
-#fores pou 8a tre3ei
+#fores pou 8a tre3ei to bootstrap
 n<-1
 
+#====================================================
+#===================  Obtaining the Dataset   ==================
+#====================================================
 
 #project of interest
 project_id <- 'SRP018008';
@@ -49,7 +51,6 @@ load(file.path(project_id, 'rse_gene.Rdata'))
 
 #finding the labels we are missing
 sra_run_table<-read.table("SraRunTable.csv",header = TRUE,sep="\t")
-labels
 # We get the columns for sample id and sample classes (cancer / normal)
 sra_run_subset <- sra_run_table[,c(11,12)]
 
@@ -89,28 +90,63 @@ for (i in 1:length(rse_gene$sample)){
 }
 
 labels
+
+#====================================================
+#====================   Quality Check  ======================
+#====================================================
+
+color = labels
+color[color=='Cancer'] = 'red'
+color[color=='Normal'] = 'blue'
+png("BoxPlot1.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+dev.off()
+
+#Many counts are close to zero and provide skewed boxplots
+#remove the genes that have very small counts
+
+toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
+count_data <- count_data[toKeep, ];
+dim(count_data)
+
+png("BoxPlot2.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+dev.off()
+
+#The boxplots in the far right end seem to give a distorted picture compared to the others
+#these probably correspond to the samples that weren't in the original paper
+count_data<-count_data[,1:75]
+labels<-labels[1:75]
+
+png("BoxPlot3.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+dev.off()
+
+
 #Normalization
-count_data = scale(count_data)
+Normalize <- function(x){(x-min(x))/(max(x)-min(x))}
+count_data = Normalize(count_data)
 
 #Visualize through Principal Component Analysis
 PCs = as.data.frame(prcomp(count_data)$rotation)
 
 library(plotly)
 
-p <- plot_ly(data = PCs, x = ~PC1, y = ~PC2, color = labels, colors = 'Spectral')
-p <- layout(p, title = "Bladder Cancer PCs",
+plot_pca <- plot_ly(data = PCs, x = ~PC1, y = ~PC2, color = labels, colors = 'Spectral')
+plot_pca <- layout(plot_pca, title = "Bladder Cancer PCs",
        xaxis = list(title = "PC 1"),
        yaxis = list(title = "PC 2"))
 
-p
+plot_pca
 
-#keep data with some significance
-#remove the genes that have very small counts
-#filter
-toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
-count_data <- count_data[toKeep, ];
-dim(count_data)
+png("CorrPlot.png")
+Corre = cor(count_data)
+corrplot(Corre, method='color')
+dev.off()
 
+#====================================================
+#====================================================
+#====================================================
 
 #antwnis 19/6/17
 categories_vec <- c()
@@ -142,7 +178,7 @@ final_cancer_data<-cancer_data[,cancer_new_indexes]
 #kane bind ta nea group se ena megalo
 count_data<-cbind(final_normal_data,final_cancer_data)
 
-#to charactericsd_vec2 einai pleon me tin seira ola ta normal mazi ola ta cancer mazi giati 
+#to charactericsd_vec2 einai pleon me tin seira ola ta normal mazi ola ta cancer mazi giati
 #etsi ta kaname sto cbind
 labels<-c(rep("Normal",normal_patients),rep("Cancer",cancer_patients))
 
