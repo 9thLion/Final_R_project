@@ -37,6 +37,7 @@ load_('vioplot', bioC=F)
 #fores pou 8a tre3ei
 n<-1
 
+
 #project of interest
 project_id <- 'SRP018008';
 
@@ -154,7 +155,9 @@ colnames(count_data) <- NULL
 #https://web.stanford.edu/class/bios221/labs/rnaseq/lab_4_rnaseq.html
 
 #object for edgeR
+
 dgList <- DGEList(counts=count_data, group=factor(labels)) #genes=rownames(count_data),
+
 
 png("test.png")
 plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
