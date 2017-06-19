@@ -1,5 +1,3 @@
-rm(list=ls())
-
 #diale3i lagani
 #http://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day3/rnaSeq_DE.pdf
 
@@ -31,18 +29,13 @@ load_("AnnotationDbi")
 load_("org.Hs.eg.db")
 load_("clusterProfiler")
 load_('biomaRt')
+load_('plotly', bioC=F)
 load_('ggplot2', bioC=F)
 load_('corrplot', bioC=F)
 load_('vioplot', bioC=F)
-load_('foreach', bioC=F)
-load_('doMC', bioC=F)
 
-registerDoMC(10)
-
-n<-5
-#epeidi o lagani gamietai kai prepei na paroume ta xaraktiristika apo allou
-sra_run_table<-read.table("SraRunTable.txt",header = TRUE,sep="\t")
-#my_data<-read.table("SraRunTable.txt",header = TRUE,sep="\t")
+#fores pou 8a tre3ei
+n<-1
 
 #project of interest
 project_id <- 'SRP018008';
@@ -53,6 +46,9 @@ download_study(project_id)
 # Load the object rse_gene
 load(file.path(project_id, 'rse_gene.Rdata'))
 
+#finding the labels we are missing
+sra_run_table<-read.table("SraRunTable.csv",header = TRUE,sep="\t")
+labels
 # We get the columns for sample id and sample classes (cancer / normal)
 sra_run_subset <- sra_run_table[,c(11,12)]
 
@@ -76,40 +72,56 @@ colnames(transcripts)[1]<-"RSA_Samples"
 #extracting the count data
 count_data <- assay(rse_gene)
 
+#we have the label vector, we know need to sort it corresponding to the recount data
 characteristics_vec<-c()
+labels<-c()
 for (i in 1:length(rse_gene$sample)){
-	#for each column of rse gene
+	#for each column downloaded from recount
 	name<-rse_gene$sample[i]
 	for (j in 1:length(sra_run_subset$SRA_Sample_s)){
 		#match the one in SRA table and keep the label
 		name2<-sra_run_subset$SRA_Sample_s[j]
 		if(name==name2){
-			characteristics_vec[i]<-sra_run_subset$Sample_Name_s[j]
-			break
+			labels[i]<-sra_run_subset$Sample_Name_s[j]
 		}
 	}
 }
 
+labels
+#Normalization
+count_data = scale(count_data)
+
+#Visualize through Principal Component Analysis
+PCs = as.data.frame(prcomp(count_data)$rotation)
+
+library(plotly)
+
+p <- plot_ly(data = PCs, x = ~PC1, y = ~PC2, color = labels, colors = 'Spectral')
+p <- layout(p, title = "Bladder Cancer PCs",
+       xaxis = list(title = "PC 1"),
+       yaxis = list(title = "PC 2"))
+
+p
+
 #keep data with some significance
 #remove the genes that have very small counts
-
-#do normalization
 #filter
 toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
 count_data <- count_data[toKeep, ];
 dim(count_data)
 
-categories_vec <- c()
+
 #antwnis 19/6/17
+categories_vec <- c()
 for(i in 1:n){
 
 #des posoi einai oi cancer kai oi normal
-cancer_patients<-length(which(characteristics_vec=="Cancer")) #53
-normal_patients<-length(which(characteristics_vec=="Normal")) #40
+cancer_patients<-length(which(labels=="Cancer")) #53
+normal_patients<-length(which(labels=="Normal")) #40
 
 #krata ta indexes ston count data pou einai to ka8e group
-cancer_col_indexes <- which(characteristics_vec=="Cancer")
-normal_col_indexes <- which(characteristics_vec=="Normal")
+cancer_col_indexes <- which(labels=="Cancer")
+normal_col_indexes <- which(labels=="Normal")
 
 #xwrise ta group meta3i tous se 2 mikrotera
 normal_data<- count_data[,normal_col_indexes]
@@ -131,7 +143,7 @@ count_data<-cbind(final_normal_data,final_cancer_data)
 
 #to charactericsd_vec2 einai pleon me tin seira ola ta normal mazi ola ta cancer mazi giati 
 #etsi ta kaname sto cbind
-characteristics_vec2<-c(rep("Normal",normal_patients),rep("Cancer",cancer_patients))
+labels<-c(rep("Normal",normal_patients),rep("Cancer",cancer_patients))
 
 #sbise ta colnames giati twra exoume epanotopo8etisi kai den sineragazetai to DGElist
 colnames(count_data) <- NULL
@@ -142,12 +154,12 @@ colnames(count_data) <- NULL
 #https://web.stanford.edu/class/bios221/labs/rnaseq/lab_4_rnaseq.html
 
 #object for edgeR
-dgList <- DGEList(counts=count_data, group=factor(characteristics_vec2)) #genes=rownames(count_data),
+dgList <- DGEList(counts=count_data, group=factor(labels)) #genes=rownames(count_data),
 
-#png("test.png")
-#plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
-#legend("bottomleft", as.character(unique(dgList$samples$group)), col=1:3, pch=20)
-#dev.off()
+png("test.png")
+plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
+legend("bottomleft", as.character(unique(dgList$samples$group)), col=1:3, pch=20)
+dev.off()
 
 #design matrix: (one hot encoding)
 design.mat <- model.matrix(~ 0 + dgList$samples$group)
@@ -159,9 +171,9 @@ d2 <- estimateGLMTrendedDisp(d2,design.mat, method="auto")
 # You can change method to "auto", "bin.spline", "power", "spline", "bin.loess".
 # The default is "auto" which chooses "bin.spline" when > 200 tags and "power" otherwise.
 d2 <- estimateGLMTagwiseDisp(d2,design.mat)
-#png("test2.png")
-#plotBCV(d2)
-#dev.off()
+png("test2.png")
+plotBCV(d2)
+dev.off()
 
 #trito link
 #Compute genewise exact tests for differences in the means between two groups of negative-binomially distributed counts.
@@ -177,14 +189,14 @@ diff_genes<-edger_table[edger_table$PValue<0.05/nrow(edger_table),]
 #mono ta onomata twn genes
 #sbise kati malakies pou exei me teleies kai tetoia
 #it ruins the entrez id, so we get rid of the dots
-diff_genes_names_<-rownames(diff_genes)
+diff_genes_names_<-diff_genes$genes
 #sbise kati malakies pou exei me teleies kai tetoia
 diff_genes_names<-gsub("\\..*","",diff_genes_names_)
 
-universe_genes<-gsub("\\..*","",rownames(edger_table))
+universe_genes<-gsub("\\..*","",edger_table$genes)
 
-#Corre = cor(count_data[diff_genes_names_,])
-#corrplot(Corre)
+Corre = cor(count_data[diff_genes_names_,])
+corrplot(Corre)
 
 ###########################################################################
 
@@ -216,7 +228,6 @@ ego <- enrichGO(gene          = entrez_diff_genes_names,
                 readable      = TRUE)
 #
 
-
 head(ego)[, 1:7]
 
 
@@ -233,7 +244,3 @@ categories_freq<-table(categories_vec)
 png("test4.png")
 hist(categories_freq, breaks = 12, col = "lightblue", border = "pink")
 dev.off()
-#print(categories_list)
-#png("test3.png")
-#dotplot(filteredEgo)
-#dev.off()
