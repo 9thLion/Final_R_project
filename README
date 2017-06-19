@@ -1,6 +1,49 @@
-Test Vangelis2
-Test antnis
-
-
+=======================================================================
 link giati epile3ame to FDR anti gia p-value
 http://seqanswers.com/forums/showthread.php?t=17011
+
+=======================================================================
+bcv distance: biological coefficient of variation
+https://rdrr.io/bioc/edgeR/man/plotMDS.DGEList.html
+
+exoume 2 epiloges gia na kanoume to prwto plot (test.png) h mia einai me counts per million, kai h alli einai na brei
+ta top gonidia pou kanoun tin diafora anamesa stis 2 kaqtastaseis kai na plottarei analoga me tis diafores autwn kai twn 
+iploipwn ipologizontas kapoio variance. To link periexei perissoteres plirofories
+=======================================================================
+>estimateGLMCommonDisp
+ipologizei to common dispersion
+>estimateGLMTrendedDisp
+Estimates the dispersion parameter for each gene with a trend that depends on the overall level of expression for that gene. 
+>estimateGLMTagwiseDisp
+This function implements the empirical Bayes strategy for estimating the tagwise negative binomial dispersions. 
+
+https://support.bioconductor.org/p/50447/
+Autos edw leei oti prepei na kanoume kai ta 3 gia RNA-seq peiramata
+
+https://support.bioconductor.org/p/75970/
+E3igei ti kanoun oi 3 entoles
+
+Ta sximata tou link einai arketa konta sto diko mas.
+======================================================================
+>diff_genes<-edger_table[edger_table$PValue<0.05,]
+exoume kanei apo panw adjust ta p-values me tin me8odo BH (Benjamini & Hochberg) logw multiple testing 
+opote den prepei na edw na diale3oume ta  <0.05/nrow(edger_table)
+
+https://www.rdocumentation.org/packages/edgeR/versions/3.14.0/topics/topTags
+
+Einai simantiko giati an kratisoume to nrow eimaste poli austiroi kai ta apokatw den bgazoun kanena apotelesma
+An kanoume auto pou lew pairnoume 8 pathways pou epireazontai, deite tin eikona pou anebasa
+======================================================================
+>enrichGO
+
+minGSSize
+    minimal size of genes annotated by Ontology term for testing.
+maxGSSize
+    maximal size of genes annotated for testing
+  
+  ekei pou leei GO Gene Set Enrichment Analysis sto apo katw link:
+  https://www.bioconductor.org/packages/devel/bioc/vignettes/clusterProfiler/inst/doc/clusterProfiler.html#go-gene-set-enrichment-analysis
+  
+  oi 2 epiloges elegxoun mikres sintonismenes allages apo to minsize mexri to maxsize. Lene oti o phenotype exei paratiri8ei
+  oti allazei apo mikres sintonismenes allages
+  
