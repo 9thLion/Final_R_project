@@ -33,23 +33,18 @@ load_('ggplot2', bioC=F)
 load_('corrplot', bioC=F)
 load_('vioplot', bioC=F)
 
-#epeidi o lagani gamietai kai prepei na paroume ta xaraktiristika apo allou
-<<<<<<< HEAD
-sra_run_table<-read.table("Master-in-Bioinformatics/BC203_Introduction_to_R_for_Bioinformaticians/Project2/Final_R_project/SraRunTable.csv",header = TRUE,sep="\t")
-=======
-my_data<-read.table("SraRunTable.txt",header = TRUE,sep="\t")
->>>>>>> origin/master
-
 #project of interest
 project_id <- 'SRP018008';
 
 # Download the gene-level RangedSummarizedExperiment data
-#download_study(project_id)
+download_study(project_id)
 
 # Load the object rse_gene
 load(file.path(project_id, 'rse_gene.Rdata'))
 
-<<<<<<< HEAD
+#finding the labels we are missing
+sra_run_table<-read.table("SraRunTable.csv",header = TRUE,sep="\t")
+labels
 # We get the columns for sample id and sample classes (cancer / normal)
 sra_run_subset <- sra_run_table[,c(11,12)]
 
@@ -70,50 +65,31 @@ sra_run_subset<- sra_run_subset[order(sra_run_subset$SRA_Sample_s),]
 # Rename the column name
 colnames(transcripts)[1]<-"RSA_Samples"
 
-=======
 #extracting the count data
 count_data <- assay(rse_gene)
->>>>>>> origin/master
 
-#sto telos to characteristic vec2 8a exei "cancer" "no-cancer"
-#stis katalliles 8eseis pou 8a eixe to kanoniko dataset an den
-#itan malakismeno
+#we have the label vector, we know need to sort it corresponding to the recount data
 characteristics_vec<-c()
+labels<-c()
 for (i in 1:length(rse_gene$sample)){
-	#for each column of rse gene
+	#for each column downloaded from recount
 	name<-rse_gene$sample[i]
-	for (j in 1:length(my_data$SRA_Sample_s)){
+	for (j in 1:length(sra_run_subset$SRA_Sample_s)){
 		#match the one in SRA table and keep the label
-		name2<-my_data$SRA_Sample_s[j]
+		name2<-sra_run_subset$SRA_Sample_s[j]
 		if(name==name2){
-			characteristics_vec[i]<-my_data$Sample_Name_s[j]
-			break
+			labels[i]<-sra_run_subset$Sample_Name_s[j]
 		}
 	}
 }
 
-#maybe change
-characteristics_vec2<-c()
-for(i in 1:length(characteristics_vec)){
-	characteristics_vec2[i]<-as.character(my_data$Sample_Name_s[characteristics_vec[i]])
-}
+labels
 
-characteristics_vec2
+#Visualize
 
-#make binary
-for(i in 1:length(characteristics_vec2)){
-	if(grepl("Cancer",characteristics_vec2[i])){
-		characteristics_vec2[i]<-"Cancer"
-	}
-	else{
-		characteristics_vec2[i]<-"Normal"
-	}
-}
-characteristics_vec2
 
 #keep data with some significance
 #remove the genes that have very small counts
-
 #do normalization
 #filter
 toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
@@ -124,7 +100,7 @@ dim(count_data)
 #https://web.stanford.edu/class/bios221/labs/rnaseq/lab_4_rnaseq.html
 
 #object for edgeR
-dgList <- DGEList(counts=count_data, genes=rownames(count_data),group=factor(characteristics_vec2))
+dgList <- DGEList(counts=count_data, genes=rownames(count_data),group=factor(labels))
 
 png("test.png")
 plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
