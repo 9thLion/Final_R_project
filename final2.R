@@ -29,6 +29,7 @@ load_("AnnotationDbi")
 load_("org.Hs.eg.db")
 load_("clusterProfiler")
 load_('biomaRt')
+load_('plotly', bioC=F)
 load_('ggplot2', bioC=F)
 load_('corrplot', bioC=F)
 load_('vioplot', bioC=F)
@@ -84,13 +85,23 @@ for (i in 1:length(rse_gene$sample)){
 }
 
 labels
+#Normalization
+count_data = scale(count_data)
 
-#Visualize
+#Visualize through Principal Component Analysis
+PCs = as.data.frame(prcomp(count_data)$rotation)
 
+library(plotly)
+
+p <- plot_ly(data = PCs, x = ~PC1, y = ~PC2, color = labels, colors = 'Spectral')
+p <- layout(p, title = "Bladder Cancer PCs",
+       xaxis = list(title = "PC 1"),
+       yaxis = list(title = "PC 2"))
+
+p
 
 #keep data with some significance
 #remove the genes that have very small counts
-#do normalization
 #filter
 toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
 count_data <- count_data[toKeep, ];
