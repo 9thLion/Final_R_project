@@ -34,6 +34,10 @@ load_('ggplot2', bioC=F)
 load_('corrplot', bioC=F)
 load_('vioplot', bioC=F)
 
+#fores pou 8a tre3ei
+n<-1
+
+
 #project of interest
 project_id <- 'SRP018008';
 
@@ -107,11 +111,53 @@ toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
 count_data <- count_data[toKeep, ];
 dim(count_data)
 
+
+#antwnis 19/6/17
+categories_vec <- c()
+for(i in 1:n){
+
+#des posoi einai oi cancer kai oi normal
+cancer_patients<-length(which(labels=="Cancer")) #53
+normal_patients<-length(which(labels=="Normal")) #40
+
+#krata ta indexes ston count data pou einai to ka8e group
+cancer_col_indexes <- which(labels=="Cancer")
+normal_col_indexes <- which(labels=="Normal")
+
+#xwrise ta group meta3i tous se 2 mikrotera
+normal_data<- count_data[,normal_col_indexes]
+dim(normal_data)
+
+cancer_data<- count_data[,cancer_col_indexes]
+dim(cancer_data)
+
+#kataskeuase nea indexes pou 8a xrisimopoih8oun me replacement
+cancer_new_indexes<-sample(cancer_patients, cancer_patients, replace = TRUE, prob = NULL)
+normal_new_indexes<-sample(normal_patients, normal_patients, replace = TRUE, prob = NULL)
+
+#kataskeauase ta permutation tou ka8e group analoga me ta indexes
+final_normal_data<-normal_data[,normal_new_indexes]
+final_cancer_data<-cancer_data[,cancer_new_indexes]
+
+#kane bind ta nea group se ena megalo
+count_data<-cbind(final_normal_data,final_cancer_data)
+
+#to charactericsd_vec2 einai pleon me tin seira ola ta normal mazi ola ta cancer mazi giati 
+#etsi ta kaname sto cbind
+labels<-c(rep("Normal",normal_patients),rep("Cancer",cancer_patients))
+
+#sbise ta colnames giati twra exoume epanotopo8etisi kai den sineragazetai to DGElist
+colnames(count_data) <- NULL
+
+#antwnis 19/6/17
+
 #prwto link
 #https://web.stanford.edu/class/bios221/labs/rnaseq/lab_4_rnaseq.html
 
 #object for edgeR
-dgList <- DGEList(counts=count_data, genes=rownames(count_data),group=factor(labels))
+
+dgList <- DGEList(counts=count_data, group=factor(labels)) #genes=rownames(count_data),
+
 
 png("test.png")
 plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
@@ -191,6 +237,13 @@ head(ego)[, 1:7]
 filteredEgo <- gofilter(ego, level = 4);
 dim(filteredEgo)
 
-png("test3.png")
-dotplot(filteredEgo)
+categories_vec<-c(categories_vec,filteredEgo$ID)
+#print(categories_vec)
+}
+
+
+categories_freq<-table(categories_vec)
+
+png("test4.png")
+hist(categories_freq, breaks = 12, col = "lightblue", border = "pink")
 dev.off()
