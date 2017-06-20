@@ -28,15 +28,15 @@ load_("doRNG", bioC=F)
 load_("recount")
 load_("DESeq2")
 load_("edgeR")
-load_("AnnotationDbi")
-load_("org.Hs.eg.db")
-load_("clusterProfiler")
-load_('biomaRt')
 load_('plotly', bioC=F)
 load_('corrplot', bioC=F)
+library(foreach)
+library(doMC)
+registerDoMC(10)
+
 
 #fores pou 8a tre3ei to bootstrap
-n<-5
+n<-100
 
 #####################################################
 #  				Obtaining the Dataset   			#
@@ -167,8 +167,8 @@ count_data<-cpm.tmm(count_data,labels)
 
 #antwnis 19/6/17
 categories_vec <- c()
-for(i in 1:n){
-
+foreach(i = 1:n) %dopar%{
+print(i)
 #des posoi einai oi cancer kai oi normal
 cancer_patients<-length(which(labels=="Cancer")) #53
 normal_patients<-length(which(labels=="Normal")) #40
@@ -258,6 +258,13 @@ universe_genes<-gsub("\\..*","",edger_table$genes)
 #corrplot(Corre)
 
 ###########################################################################
+#edw tis biblio8ikes giati ka8e thread 8elei to diko tou antigrafo library
+#alliws trwei kati error : malformed image disk
+load_("AnnotationDbi")
+load_("org.Hs.eg.db")
+load_("clusterProfiler")
+load_('biomaRt')
+
 
 #Mapping from ensembl ID to entrez ID
 mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
@@ -293,13 +300,45 @@ head(ego)[, 1:7]
 filteredEgo <- gofilter(ego, level = 4);
 dim(filteredEgo)
 
+filename<-paste("output",i,".txt",sep="")
 categories_vec<-c(categories_vec,filteredEgo$ID)
+sink(filename)
+print (categories_vec)
+sink()
+
 #print(categories_vec)
 }
 
 
-categories_freq<-table(categories_vec)
+filename<-paste("output",1,".txt",sep="")
+# Read in the data
+x<-scan(filename, character(), quote = "")
+#y <- lapply(y, function(x) x[-1]) # same as above
+for (i in 2:n){
+	filename<-paste("output",i,".txt",sep="")
+	y<-scan(filename, character(), quote = "")
+	x<-c(x,y)
+}
+x <- x[nchar(x) > 5]
 
-png("test4.png")
-hist(categories_freq, breaks = 12, col = "lightblue", border = "pink")
-dev.off()
+a = data.frame("data"=x)
+a <- transform(a, freq= ave(seq(nrow(a)), data, FUN=length))
+#head(a[order(-a$freq), ])
+#length(a$freq==10)
+
+slices<-length(which(a$freq==1))
+for (i in 2:n){
+	slices<-c(slices,length(which(a$freq==i)))
+}
+pie(slices, col=rainbow(slices))
+#png("test4.png")
+#hist(categories_freq, breaks = 12, col = "lightblue", border = "pink")
+#dev.off()
+
+#slices <- table(categories_vec)
+#lbls <- categories_vec
+#pct <- round(slices/sum(slices)*100)
+#lbls <- paste(lbls, pct) # add percents to labels
+#lbls <- paste(lbls,"%",sep="") # ad % to labels
+#pie(slices, col=rainbow(length(lbls)),
+ #  main="Pie Chart of Countries") 
