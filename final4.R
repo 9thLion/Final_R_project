@@ -30,9 +30,11 @@ load_("DESeq2")
 load_("edgeR")
 load_('plotly', bioC=F)
 load_('corrplot', bioC=F)
-library(foreach)
-library(doMC)
-registerDoMC(10)
+load_("AnnotationDbi")
+load_("org.Hs.eg.db")
+load_("clusterProfiler")
+load_('biomaRt')
+
 
 
 #fores pou 8a tre3ei to bootstrap
@@ -167,7 +169,7 @@ count_data<-cpm.tmm(count_data,labels)
 
 #antwnis 19/6/17
 categories_vec <- c()
-foreach(i = 1:n) %dopar%{
+for(i in 1:n){
 print(i)
 #des posoi einai oi cancer kai oi normal
 cancer_patients<-length(which(labels=="Cancer")) #53
@@ -258,13 +260,6 @@ universe_genes<-gsub("\\..*","",edger_table$genes)
 #corrplot(Corre)
 
 ###########################################################################
-#edw tis biblio8ikes giati ka8e thread 8elei to diko tou antigrafo library
-#alliws trwei kati error : malformed image disk
-load_("AnnotationDbi")
-load_("org.Hs.eg.db")
-load_("clusterProfiler")
-load_('biomaRt')
-
 
 #Mapping from ensembl ID to entrez ID
 mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
@@ -310,35 +305,40 @@ sink()
 }
 
 
+#me to paste ftiaxneis onomata gia ta arxeia
+#to prwto xreiazetai xeirokinita gia na mporw na kanw 
+# to c(x,y) meta
 filename<-paste("output",1,".txt",sep="")
-# Read in the data
 x<-scan(filename, character(), quote = "")
-#y <- lapply(y, function(x) x[-1]) # same as above
+#diavase ola ta arxeia kai ftia3e ena vector
 for (i in 2:n){
 	filename<-paste("output",i,".txt",sep="")
 	y<-scan(filename, character(), quote = "")
 	x<-c(x,y)
 }
+#peta diafores malakies pou exeis diavasei apo ta arxeia
 x <- x[nchar(x) > 5]
 
+#kane to dataframe me 1 column gia na einia to ena katw apo to allo
 a = data.frame("data"=x)
+#bres poso sixna emfanizetai to ka8e GO
 a <- transform(a, freq= ave(seq(nrow(a)), data, FUN=length))
-#head(a[order(-a$freq), ])
-#length(a$freq==10)
 
+#ftia3e tin pita
+#den bgainei poli kali
+#isws prepei na baloume to barplot
 slices<-length(which(a$freq==1))
+lbls<-c("1")
 for (i in 2:n){
 	slices<-c(slices,length(which(a$freq==i)))
+	lbls<-c(lbls,paste(i,sep=""))
 }
-pie(slices, col=rainbow(slices))
-#png("test4.png")
-#hist(categories_freq, breaks = 12, col = "lightblue", border = "pink")
-#dev.off()
 
-#slices <- table(categories_vec)
-#lbls <- categories_vec
-#pct <- round(slices/sum(slices)*100)
-#lbls <- paste(lbls, pct) # add percents to labels
-#lbls <- paste(lbls,"%",sep="") # ad % to labels
-#pie(slices, col=rainbow(length(lbls)),
- #  main="Pie Chart of Countries") 
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls," ",pct,sep="") # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels 
+
+png("pie.png")
+pie(slices,labels = lbls, col=rainbow(slices),
+   main="Pie Chart of Results") 
+dev.off()
