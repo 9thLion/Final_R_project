@@ -123,6 +123,8 @@ cpm.tmm <- function(counts, groups=NA){
 
 count_data<-cpm.tmm(count_data,labels)
 
+### Plotting ###
+
 color = labels
 color[color=='Cancer'] = 'red'
 color[color=='Normal'] = 'blue'
@@ -188,6 +190,7 @@ categories_vec <- c()
 for(i in 1:n){
 print(i)
 #des posoi einai oi cancer kai oi normal
+#!!! oxi 53/40, exoume 75 sinolika, petaksame kapoia
 cancer_patients<-length(which(labels=="Cancer")) #53
 normal_patients<-length(which(labels=="Normal")) #40
 
@@ -247,6 +250,7 @@ colnames(design.mat) <- levels(dgList$samples$group)
 #d2 <- estimateGLMTagwiseDisp(d2,design.mat)
 
 d2<-estimateDisp.DGEList(dgList,design.mat)
+##Why are we doing this again?
 
 #png("test2.png")
 #plotBCV(d2)
@@ -256,7 +260,6 @@ d2<-estimateDisp.DGEList(dgList,design.mat)
 #Compute genewise exact tests for differences in the means between two groups of negative-binomially distributed counts.
 et <- exactTest(d2)
 results_edgeR <- topTags(et, n = nrow(count_data), sort.by = "PValue")
-#results_edgeR <- topTags(et, n = nrow(count_data), sort.by = "PValue")
 
 #krata mono ta data
 edger_table<-results_edgeR$table
