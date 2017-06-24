@@ -58,6 +58,11 @@ sra_run_table<-read.table("SraRunTable.csv",header = TRUE,sep="\t")
 # We get the columns for sample id and sample classes (cancer / normal)
 sra_run_subset <- sra_run_table[,c(11,12)]
 
+#We realised there are 2 distinct notations, so we will keep a color vector for samples
+#corresponding to different notations. It may be useful.
+color_notations<-apply(sra_run_subset[2],2, function(x) sub(".*_.*","green",x))
+color_notations<-apply(color_notations,2, function(x) sub(".*-.*[NT]","cyan",x))
+
 # Using a regular expression we remove the prefix before the cancer/normal
 # The first condition for the data are to be B123_Normal or B123_Cancer so we just erase the prefix
 
@@ -100,34 +105,6 @@ labels
 #####################################################
 
 
-#color = labels
-#color[color=='Cancer'] = 'red'
-#color[color=='Normal'] = 'blue'
-#png("BoxPlot1.png")
-#boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
-#dev.off()
-
-#Many counts are close to zero and provide skewed boxplots
-#remove the genes that have very small counts
-
-toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
-count_data <- count_data[toKeep, ];
-dim(count_data)
-
-#png("BoxPlot2.png")
-#boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
-#dev.off()
-
-#The boxplots in the far right end seem to give a distorted picture compared to the others
-#these probably correspond to the samples that weren't in the original paper
-count_data<-count_data[,1:75]
-labels<-labels[1:75]
-
-#png("BoxPlot3.png")
-#boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
-#dev.off()
-
-
 #Normalization
 #Normalize <- function(x){(x-min(x))/(max(x)-min(x))}
 #count_data = Normalize(count_data)
@@ -140,28 +117,67 @@ cpm.tmm <- function(counts, groups=NA){
     else{
         d<-DGEList(counts=counts, group=groups)
     }
-    d <- calcNormFactors(d, method="TMM") 
+    d <- calcNormFactors(d, method="TMM")
     return(cpm(d, normalized.lib.sizes=TRUE))
 }
 
 count_data<-cpm.tmm(count_data,labels)
 
+color = labels
+color[color=='Cancer'] = 'red'
+color[color=='Normal'] = 'blue'
+png("BoxPlot1.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+legend("topright", c('Normal','Cancer'),fill=c('blue','red'))
+dev.off()
+
+#Many counts are close to zero and provide skewed boxplots
+#remove the genes that have very small counts
+#we choose to remove those that appear less than 50 times the number of samples (93). Which means 50 per sample on average.
+toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
+count_data <- count_data[toKeep, ];
+dim(count_data)
+
+png("BoxPlot2.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+legend("topright", c('Normal','Cancer'),fill=c('blue','red'))
+dev.off()
+
+
+#Visualize based on the different notations. Maybe they correspond to different studies.
+png("BoxPlotNotations.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color_notations, outline = FALSE)
+legend("topright", c('Notation_1','Notation_2'),fill=c('green','cyan'))
+dev.off()
+
+
+
+#The shift in the dataset is caused by a batch effect, so we get rid of the corresponding data
+count_data<-count_data[,1:75]
+labels<-labels[1:75]
+
+png("BoxPlot3.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+legend("topright", c('Normal','Cancer'),fill=c('blue','red'))
+dev.off()
+
+
 #Visualize through Principal Component Analysis
-#PCs = as.data.frame(prcomp(count_data)$rotation)
+PCs = as.data.frame(prcomp(count_data)$rotation)
 
-#library(plotly)
+library(plotly)
 
-#plot_pca <- plot_ly(data = PCs, x = ~PC1, y = ~PC2, color = labels, colors = 'Spectral')
-#plot_pca <- layout(plot_pca, title = "Bladder Cancer PCs",
-#       xaxis = list(title = "PC 1"),
-#       yaxis = list(title = "PC 2"))
+plot_pca <- plot_ly(data = PCs, x = ~PC1, y = ~PC2, color = labels, colors = 'Spectral')
+plot_pca <- layout(plot_pca, title = "Bladder Cancer PCs",
+       xaxis = list(title = "PC 1"),
+       yaxis = list(title = "PC 2"))
 
-#plot_pca
+plot_pca
 
-#png("CorrPlot.png")
-#Corre = cor(count_data)
-#corrplot(Corre, method='color')
-#dev.off()
+png("CorrPlot.png")
+Corre = cor(count_data)
+corrplot(Corre, method='color')
+dev.off()
 
 #====================================================
 #====================================================
@@ -306,7 +322,7 @@ sink()
 
 
 #me to paste ftiaxneis onomata gia ta arxeia
-#to prwto xreiazetai xeirokinita gia na mporw na kanw 
+#to prwto xreiazetai xeirokinita gia na mporw na kanw
 # to c(x,y) meta
 filename<-paste("output",1,".txt",sep="")
 x<-scan(filename, character(), quote = "")
@@ -336,9 +352,9 @@ for (i in 2:n){
 
 pct <- round(slices/sum(slices)*100)
 lbls <- paste(lbls," ",pct,sep="") # add percents to labels
-lbls <- paste(lbls,"%",sep="") # ad % to labels 
+lbls <- paste(lbls,"%",sep="") # ad % to labels
 
 png("pie.png")
 pie(slices,labels = lbls, col=rainbow(slices),
-   main="Pie Chart of Results") 
+   main="Pie Chart of Results")
 dev.off()
