@@ -38,7 +38,7 @@ load_('biomaRt')
 
 
 #fores pou 8a tre3ei to bootstrap
-n<-100
+n<-1
 
 #####################################################
 #  				Obtaining the Dataset   			#
@@ -57,6 +57,11 @@ load(file.path(project_id, 'rse_gene.Rdata'))
 sra_run_table<-read.table("SraRunTable.csv",header = TRUE,sep="\t")
 # We get the columns for sample id and sample classes (cancer / normal)
 sra_run_subset <- sra_run_table[,c(11,12)]
+
+#We realised there are 2 distinct notations, so we will keep a color vector for samples
+#corresponding to different notations. It may be useful.
+color_notations<-apply(sra_run_subset[2],2, function(x) sub(".*_.*","green",x))
+color_notations<-apply(color_notations,2, function(x) sub(".*-.*[NT]","cyan",x))
 
 # Using a regular expression we remove the prefix before the cancer/normal
 # The first condition for the data are to be B123_Normal or B123_Cancer so we just erase the prefix
@@ -100,38 +105,6 @@ labels
 #####################################################
 
 
-#color = labels
-#color[color=='Cancer'] = 'red'
-#color[color=='Normal'] = 'blue'
-#png("BoxPlot1.png")
-#boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
-#dev.off()
-
-#Many counts are close to zero and provide skewed boxplots
-#remove the genes that have very small counts
-
-toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
-count_data <- count_data[toKeep, ];
-dim(count_data)
-
-#png("BoxPlot2.png")
-#boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
-#dev.off()
-
-#The boxplots in the far right end seem to give a distorted picture compared to the others
-#these probably correspond to the samples that weren't in the original paper
-count_data<-count_data[,1:75]
-labels<-labels[1:75]
-
-#png("BoxPlot3.png")
-#boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
-#dev.off()
-
-
-#Normalization
-#Normalize <- function(x){(x-min(x))/(max(x)-min(x))}
-#count_data = Normalize(count_data)
-
 cpm.tmm <- function(counts, groups=NA){
     require(edgeR)
     if(is.na(groups)){
@@ -140,28 +113,51 @@ cpm.tmm <- function(counts, groups=NA){
     else{
         d<-DGEList(counts=counts, group=groups)
     }
-    d <- calcNormFactors(d, method="TMM") 
+    d <- calcNormFactors(d, method="TMM")
     return(cpm(d, normalized.lib.sizes=TRUE))
 }
 
 count_data<-cpm.tmm(count_data,labels)
 
-#Visualize through Principal Component Analysis
-#PCs = as.data.frame(prcomp(count_data)$rotation)
+### Plotting ###
 
-#library(plotly)
+color = labels
+color[color=='Cancer'] = 'red'
+color[color=='Normal'] = 'blue'
+png("BoxPlot1.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+legend("topright", c('Normal','Cancer'),fill=c('blue','red'))
+dev.off()
 
-#plot_pca <- plot_ly(data = PCs, x = ~PC1, y = ~PC2, color = labels, colors = 'Spectral')
-#plot_pca <- layout(plot_pca, title = "Bladder Cancer PCs",
-#       xaxis = list(title = "PC 1"),
-#       yaxis = list(title = "PC 2"))
+#Many counts are close to zero and provide skewed boxplots
+#remove the genes that have very small counts
+#we choose to remove those that appear less than 50 times the number of samples (93). Which means 50 per sample on average.
+toKeep <- apply(count_data, 1, sum) > 50 * dim(count_data)[2];
+count_data <- count_data[toKeep, ];
+dim(count_data)
 
-#plot_pca
+png("BoxPlot2.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+legend("topright", c('Normal','Cancer'),fill=c('blue','red'))
+dev.off()
 
-#png("CorrPlot.png")
-#Corre = cor(count_data)
-#corrplot(Corre, method='color')
-#dev.off()
+
+#Visualize based on the different notations. Maybe they correspond to different studies.
+png("BoxPlotNotations.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color_notations, outline = FALSE)
+legend("topright", c('Notation_1','Notation_2'),fill=c('green','cyan'))
+dev.off()
+
+
+
+#The shift in the dataset is caused by a batch effect, so we get rid of the corresponding data
+count_data<-count_data[,1:75]
+labels<-labels[1:75]
+
+png("BoxPlot3.png")
+boxplot(count_data, xlab = "observations", ylab = "counts", col = color, outline = FALSE)
+legend("topright", c('Normal','Cancer'),fill=c('blue','red'))
+dev.off()
 
 #====================================================
 #====================================================
@@ -170,39 +166,42 @@ count_data<-cpm.tmm(count_data,labels)
 #antwnis 19/6/17
 categories_vec <- c()
 for(i in 1:n){
-print(i)
-#des posoi einai oi cancer kai oi normal
-cancer_patients<-length(which(labels=="Cancer")) #53
-normal_patients<-length(which(labels=="Normal")) #40
 
-#krata ta indexes ston count data pou einai to ka8e group
-cancer_col_indexes <- which(labels=="Cancer")
-normal_col_indexes <- which(labels=="Normal")
+	if(n>1){
+	print(i)
+	#des posoi einai oi cancer kai oi normal
+	cancer_patients<-length(which(labels=="Cancer"))
+	normal_patients<-length(which(labels=="Normal"))
 
-#xwrise ta group meta3i tous se 2 mikrotera
-normal_data<- count_data[,normal_col_indexes]
-dim(normal_data)
+	#krata ta indexes ston count data pou einai to ka8e group
+	cancer_col_indexes <- which(labels=="Cancer")
+	normal_col_indexes <- which(labels=="Normal")
 
-cancer_data<- count_data[,cancer_col_indexes]
-dim(cancer_data)
+	#xwrise ta group meta3i tous se 2 mikrotera
+	normal_data<- count_data[,normal_col_indexes]
+	dim(normal_data)
 
-#kataskeuase nea indexes pou 8a xrisimopoih8oun me replacement
-cancer_new_indexes<-sample(cancer_patients, cancer_patients, replace = TRUE, prob = NULL)
-normal_new_indexes<-sample(normal_patients, normal_patients, replace = TRUE, prob = NULL)
+	cancer_data<- count_data[,cancer_col_indexes]
+	dim(cancer_data)
 
-#kataskeauase ta permutation tou ka8e group analoga me ta indexes
-final_normal_data<-normal_data[,normal_new_indexes]
-final_cancer_data<-cancer_data[,cancer_new_indexes]
+	#kataskeuase nea indexes pou 8a xrisimopoih8oun me replacement
+	cancer_new_indexes<-sample(cancer_patients, cancer_patients, replace = TRUE, prob = NULL)
+	normal_new_indexes<-sample(normal_patients, normal_patients, replace = TRUE, prob = NULL)
 
-#kane bind ta nea group se ena megalo
-count_data<-cbind(final_normal_data,final_cancer_data)
+	#kataskeauase ta permutation tou ka8e group analoga me ta indexes
+	final_normal_data<-normal_data[,normal_new_indexes]
+	final_cancer_data<-cancer_data[,cancer_new_indexes]
 
-#to charactericsd_vec2 einai pleon me tin seira ola ta normal mazi ola ta cancer mazi giati
-#etsi ta kaname sto cbind
-labels<-c(rep("Normal",normal_patients),rep("Cancer",cancer_patients))
+	#kane bind ta nea group se ena megalo
+	count_data<-cbind(final_normal_data,final_cancer_data)
 
-#sbise ta colnames giati twra exoume epanotopo8etisi kai den sineragazetai to DGElist
-colnames(count_data) <- NULL
+	#to charactericsd_vec2 einai pleon me tin seira ola ta normal mazi ola ta cancer mazi giati
+	#etsi ta kaname sto cbind
+	labels<-c(rep("Normal",normal_patients),rep("Cancer",cancer_patients))
+
+	#sbise ta colnames giati twra exoume epanotopo8etisi kai den sineragazetai to DGElist
+	colnames(count_data) <- NULL
+	}
 
 #antwnis 19/6/17
 
@@ -213,51 +212,27 @@ colnames(count_data) <- NULL
 
 dgList <- DGEList(counts=count_data,genes=rownames(count_data), group=factor(labels))
 
-
-#png("test.png")
-#plotMDS(dgList, method="bcv", col=as.numeric(dgList$samples$group))
-#legend("bottomleft", as.character(unique(dgList$samples$group)), col=1:3, pch=20)
-#dev.off()
-
 #design matrix: (one hot encoding)
 design.mat <- model.matrix(~ 0 + dgList$samples$group)
 colnames(design.mat) <- levels(dgList$samples$group)
 
-#estimating dispersion #autes oi 3 entoles kanoun to idio pragma? need to explore further
-#d2 <- estimateGLMCommonDisp(dgList,design.mat)
-#d2 <- estimateGLMTrendedDisp(d2,design.mat, method="auto")
-# You can change method to "auto", "bin.spline", "power", "spline", "bin.loess".
-# The default is "auto" which chooses "bin.spline" when > 200 tags and "power" otherwise.
-#d2 <- estimateGLMTagwiseDisp(d2,design.mat)
-
 d2<-estimateDisp.DGEList(dgList,design.mat)
-
-#png("test2.png")
-#plotBCV(d2)
-#dev.off()
 
 #trito link
 #Compute genewise exact tests for differences in the means between two groups of negative-binomially distributed counts.
 et <- exactTest(d2)
 results_edgeR <- topTags(et, n = nrow(count_data), sort.by = "PValue")
-#results_edgeR <- topTags(et, n = nrow(count_data), sort.by = "PValue")
 
 #krata mono ta data
 edger_table<-results_edgeR$table
-#apo auta mono ta differentially expressed genes
-#correction p-value
+#keep the differentially expressed genes with a significance lower than the Bonferroni cutoff
 diff_genes<-edger_table[edger_table$PValue<0.05/nrow(edger_table),]
-#mono ta onomata twn genes
-#sbise kati malakies pou exei me teleies kai tetoia
-#it ruins the entrez id, so we get rid of the dots
 diff_genes_names<-diff_genes$genes
-#sbise kati malakies pou exei me teleies kai tetoia
+
+# we get rid of the dots that ruin the entrez id
 diff_genes_names<-gsub("\\..*","",diff_genes_names)
 
 universe_genes<-gsub("\\..*","",edger_table$genes)
-
-#Corre = cor(count_data[diff_genes_names,])
-#corrplot(Corre)
 
 ###########################################################################
 
@@ -295,55 +270,42 @@ head(ego)[, 1:7]
 filteredEgo <- gofilter(ego, level = 4);
 dim(filteredEgo)
 
-filename<-paste("output",i,".txt",sep="")
-categories_vec<-c(categories_vec,filteredEgo$ID)
-sink(filename)
-print (categories_vec)
-sink()
-
-#print(categories_vec)
-}
-
-
-filename<-paste("output",100,".txt",sep="")
-x<-scan(filename, character(), quote = "")
-
-#peta diafores malakies pou exeis diavasei apo ta arxeia
-x <- x[nchar(x) > 5]
-
-#kane to dataframe me 1 column gia na einia to ena katw apo to allo
-a = data.frame("data"=x)
-
-#bres poso sixna emfanizetai to ka8e GO
-a<-as.data.frame(table(a))
-
-a<-a[order(-a$Freq),]
-
-#the majority of the genes are seen as differentially expressed at least once, this is due to the bootstrap and the 
-#result should be interpreted as pure luck, and thus should be discarded
-a<-a[!(a$Freq==1),]
-
-png("barplot.png")
-hist(a$Freq,col="cyan",main="Results from bootstrap",ylab="Number of Gens", xlab="Frequency of importance",breaks=10)
+png("dotplot.png")
+dotplot(filteredEgo)
 dev.off()
 
-temp<-a[a$Freq>=95,]
-temp2<-temp[,1]
-#ftia3e tin pita
-#den bgainei poli kali
-#isws prepei na baloume to barplot
-#slices<-c()
-#lbls<-c()
-#for (i in 2:n){
-#	slices[i-1]<-length(which(a$Freq==i))
-#	lbls[i-1]<-paste(i,sep="")
-#}
+categories_vec<-c(categories_vec,filteredEgo$ID)
+}
 
-#pct <- round(slices/sum(slices)*100)
-#lbls <- paste(lbls," ",pct,sep="") # add percents to labels
-#lbls <- paste(lbls,"%",sep="") # ad % to labels 
+if(n>1){
 
-#png("pie.png")
-#pie(slices,labels = lbls, col=rainbow(slices),
-#   main="Pie Chart of Results") 
-#dev.off()
+	filename<-paste("output",n,".txt",sep="")
+	sink(filename)
+	print (categories_vec)
+	sink()
+
+	filename<-paste("output",n,".txt",sep="")
+	x<-scan(filename, character(), quote = "")
+
+	#clean
+	x <- x[nchar(x) > 7]
+
+	#kane to dataframe me 1 column gia na einai to ena katw apo to allo
+	a = data.frame("data"=x)
+
+	#bres poso sixna emfanizetai to ka8e GO
+	a<-as.data.frame(table(a))
+
+	a<-a[order(-a$Freq),]
+
+	#the majority of the genes are seen as differentially expressed at least once, this is due to the bootstrap and the
+	#result should be interpreted as pure luck, and thus should be discarded
+	a<-a[!(a$Freq==1),]
+
+	png("barplot.png")
+	hist(a$Freq,col="cyan",main="Results from bootstrap",ylab="Number of Gens", xlab="Frequency of importance",breaks=10)
+	dev.off()
+
+	temp<-a[a$Freq>=95,]
+	temp2<-temp[,1]
+}
